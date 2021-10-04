@@ -61,9 +61,18 @@ from pathlib import Path
 
 # Define where to store the shape files
 base_path = '/dbfs/tmp/geospatial'
+
 nyc_buildings_zip = f'{base_path}/nyc_buildings.zip'
 nyc_buildings_files = f'{base_path}/nyc_buildings'
-nyc_buildings_dbfs_path = '/tmp/geospatial/nyc_buildings'
+
+base_dbfs_path = base_path.replace('/dbfs/', 'dbfs:/')
+nyc_buildings_dbfs_path = nyc_buildings_files.replace('/dbfs/', 'dbfs:/')
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC Download the NYC buildings shapefiles
 
 # COMMAND ----------
 
@@ -73,16 +82,27 @@ path.mkdir(parents=True, exist_ok=True)
 
 # Download shapefiles
 url = 'https://data.cityofnewyork.us/api/geospatial/2k7f-6s2k?method=export&format=Shapefile'
-r = requests.get(url, allow_redirects=True)
-open(nyc_buildings_zip, 'wb').write(r.content)
+
+with open(nyc_buildings_zip, 'wb') as f:
+  r = requests.get(url, allow_redirects=True)
+  f.write(r.content)
 
 # COMMAND ----------
 
-import zipfile
+# MAGIC %md
+# MAGIC Unzip the downloaded files
+
+# COMMAND ----------
 
 # Unzip the files
+import zipfile
+
 with zipfile.ZipFile(nyc_buildings_zip, 'r') as zip_ref:
     zip_ref.extractall(nyc_buildings_files)
+
+# COMMAND ----------
+
+display(dbutils.fs.ls(nyc_buildings_dbfs_path))
 
 # COMMAND ----------
 
@@ -105,8 +125,13 @@ display(nyc_buildings.limit(10))
 
 # COMMAND ----------
 
-# Count the number of records
-# This will take a long time, since shapefiles has to be entirely red sequentially by a single core.
+# MAGIC %md
+# MAGIC 
+# MAGIC Count the number of records.
+# MAGIC This will take a long time because shapefiles has to be entirely red sequentially by a single core.
+
+# COMMAND ----------
+
 nyc_buildings.count()
 
 # COMMAND ----------
@@ -115,22 +140,27 @@ nyc_buildings.count()
 # MAGIC 
 # MAGIC ## Create the Bronze tables
 # MAGIC 
-# MAGIC By ingesting the geospatial data into a delta table, we can run much faster queries because the read can be paralelized and the delta metadata can be leaveraged.
+# MAGIC By ingesting the geospatial data into a delta table, we can run much faster queries because the read can be paralelized and the delta table metadata can be leaveraged.
 
 # COMMAND ----------
 
 db = 'geospatial_example_bronze'
-table = 'nyc_buildings'
+table_name = 'nyc_buildings'
 
 spark.sql(f'CREATE DATABASE IF NOT EXISTS {db}')
 spark.sql(f'USE {db}')
 
-nyc_buildings.write.saveAsTable(f'{db}.{table}')
+nyc_buildings.write.saveAsTable(f'{db}.{table_name}')
 
 # COMMAND ----------
 
-# Counting the row from the delta table will be much faster compared to reading from shapefiles
-spark.read.table(table).count()
+# MAGIC %md
+# MAGIC 
+# MAGIC Counting the rows from the delta table will be much faster compared to counting from shapefiles done above.
+
+# COMMAND ----------
+
+spark.read.table(table_name).count()
 
 # COMMAND ----------
 
@@ -164,6 +194,21 @@ spark.read.table(table).count()
 # MAGIC FROM   nyc_buildings 
 # MAGIC WHERE  name <> ''
 # MAGIC ORDER BY distance
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Cleanup
+
+# COMMAND ----------
+
+# Remove the downloaded data
+dbutils.fs.rm(base_dbfs_path, True)
+
+# COMMAND ----------
+
+# Drop the delta table
+spark.sql(f'DROP TABLE IF EXISTS {table_name}')
 
 # COMMAND ----------
 
