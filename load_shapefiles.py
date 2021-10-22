@@ -7,7 +7,7 @@
 # MAGIC %md
 # MAGIC ## Cluster setup
 # MAGIC 
-# MAGIC Open your cluster configuration, and under the Libraries tab:
+# MAGIC Open your cluster configuration and:
 # MAGIC 
 # MAGIC 1) From the `Libraries` tab install from Maven Coordinates
 # MAGIC 
@@ -24,7 +24,10 @@
 # MAGIC apache-sedona
 # MAGIC ```
 # MAGIC 
-# MAGIC 3) (Optional) Speed up the serialization/deserialization by registering the KryoSerializer classes.
+# MAGIC 3) (Optional; only for DBR <= 7.3 LTS) Speed up the serialization/deserialization by registering the KryoSerializer classes.
+# MAGIC 
+# MAGIC *This option is not compatible with newer DBR versions (8.x+).*
+# MAGIC 
 # MAGIC Go to your `Cluster` -> `Edit` -> `Configuration` -> `Advanced options` and add the following lines to the Spark Config:
 # MAGIC 
 # MAGIC ```
@@ -38,11 +41,12 @@
 # MAGIC ### Register geospatial SQL expressions
 # MAGIC 
 # MAGIC This will make the geospatial `ST_*` functions available to SQL and python expressions.
+# MAGIC 
+# MAGIC You can find the available `ST_*` [constructors](https://sedona.apache.org/api/sql/Constructor/), [functions](https://sedona.apache.org/api/sql/Function/), etc. on the Sedona documentation pages.
 
 # COMMAND ----------
 
 from sedona.register.geo_registrator import SedonaRegistrator
-
 SedonaRegistrator.registerAll(spark)
 
 # COMMAND ----------
